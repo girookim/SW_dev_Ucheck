@@ -1,0 +1,130 @@
+#!/bin/bash
+
+# 계정이 있는지 확인하는 함수
+account_exists() {
+    local userid=$1
+    if id "$userid" &>/dev/null; then
+        return 0  # 계정이 존재
+    else
+        return 1  # 계정이 존재하지 않음
+    fi
+}
+
+# 계정 여부 확인
+echo "이미 계정이 있으신가요? (Y/N):"
+read has_account
+
+if [[ $has_account == "N" || $has_account == "n" ]]; then
+    # 회원가입 프로세스
+    echo "회원가입 할 아이디를 입력해주세요:"
+    read userid
+
+    # 아이디가 이미 존재하는지 확인
+    if account_exists "$userid"; then
+        echo "이미 사용 중인 아이디입니다. 프로그램을 종료합니다."
+        exit 1
+    fi
+
+    echo "'$userid'의 비밀번호를 입력해주세요:"
+    read -s password
+
+    echo "교수/학생 여부를 선택해주세요: (P/S):"
+    read role
+
+    if [[ $role == "P" ]]; then
+        group="group1"
+    elif [[ $role == "S" ]]; then
+        group="group2"
+    else
+        echo "잘못된 입력입니다. 프로그램을 종료합니다."
+        exit 1
+    fi
+
+    # 그룹 폴더가 없으면 생성
+    shared_dir="/home/shared"
+    group_dir="$shared_dir/$group"
+    if [ ! -d "$group_dir" ]; then
+        sudo mkdir "$group_dir"
+        echo "$group 폴더가 생성되었습니다."
+    fi
+
+    # 사용자 추가
+    sudo useradd -m -g $group -p $(openssl passwd -1 "$password") $userid
+    echo "사용자 '$userid'가 $group에 추가되었습니다."
+
+    # TXT 파일 생성
+    txtfile="$group_dir/$userid.txt"
+    echo "아이디: $userid" > $txtfile
+    echo "비밀번호: $password" >> $txtfile
+    echo "교수/학생: $role" >> $txtfile
+    echo "출석정보: 없음" >> $txtfile
+
+    # 권한 설정
+    if [[ $group == "group2" ]]; then
+        sudo chmod 600 $txtfile
+        sudo chown $userid:$group $txtfile
+    else
+        sudo chmod 660 $txtfile
+        sudo chown $userid:$group $txtfile
+    fi
+
+    echo "$userid.txt 파일이 $group 폴더에 생성되었습니다."
+
+elif [[ $has_account == "Y" || $has_account == "y" ]]; then
+    # 로그인 프로세스
+    echo "로그인 아이디를 입력해주세요:"
+    read login_id
+
+    # 아이디가 존재하는지 확인
+    if ! account_exists "$login_id"; then
+        echo "존재하지 않는 아이디입니다. 프로그램을 종료합니다."
+        exit 1
+    fi
+
+    echo "로그인 비밀번호를 입력해주세요:"
+    read -s login_pw
+
+    # 그룹 확인
+    role=$(groups $login_id | grep -o "group[12]")
+
+    # 그룹 폴더 경로 설정
+    shared_dir="/home/shared"
+    group_dir="$shared_dir/$role"
+    txtfile="$group_dir/$login_id.txt"
+
+    # 사용자 인증
+    if ! grep -q "비밀번호: $login_pw" "$txtfile"; then
+        echo "로그인 실패. 아이디 또는 비밀번호를 확인하세요."
+        exit 1
+    fi
+
+    # 사용자 역할 확인
+    if [[ $role == "group2" ]]; then
+        echo "본인 정보를 수정합니다."
+        sed -i "s/출석정보:.*/출석정보: 출석/" $txtfile
+        echo "출석 확인되었습니다."
+
+    elif [[ $role == "group1" ]]; then
+        echo "수정할 학생 ID를 입력하세요:"
+        read student_id
+        student_file="$group_dir/$student_id.txt"
+        if [[ -f $student_file ]]; then
+            echo "학생 $student_id의 출석정보를 확인합니다."
+            cat $student_file
+            echo "수정하시겠습니까? (Y/N)"
+            read confirm
+            if [[ $confirm == "Y" ]]; then
+                sed -i "s/출석정보:.*/출석정보: 출석/" $student_file
+                echo "출석정보가 수정되었습니다."
+            fi
+        else
+            echo "학생 파일이 존재하지 않습니다."
+        fi
+    else
+        echo "권한이 없습니다."
+        exit 1
+    fi
+else
+    echo "잘못된 입력입니다. 프로그램을 종료합니다."
+    exit 1
+fi
