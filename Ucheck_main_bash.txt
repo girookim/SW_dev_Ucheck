@@ -1,0 +1,41 @@
+#!/bin/bash
+
+# 사용자 등록 스크립트
+echo "회원가입 할 아이디를 입력해주세요:"
+read userid
+
+echo "'$userid'의 비밀번호를 입력해주세요:"
+read -s password
+
+echo ": (P/S):"
+read role
+
+if [[ $role == "P" ]]; then
+    group="group1"
+elif [[ $role == "S" ]]; then
+    group="group2"
+else
+    echo "잘못된 입력입니다. 프로그램을 종료합니다."
+    exit 1
+fi
+
+# 사용자 추가
+sudo useradd -m -g $group -p $(openssl passwd -1 "$password") $userid
+echo "사용자 '$userid'가 $group에 추가되었습니다."
+
+# TXT 파일 생성
+txtfile="/home/shared/$userid.txt"
+echo "아이디: $userid" > $txtfile
+echo "비밀번호: $password" >> $txtfile
+echo "출석정보: 없음" >> $txtfile
+
+# 권한 설정
+if [[ $group == "group2" ]]; then
+    sudo chmod 600 $txtfile
+    sudo chown $userid:$group $txtfile
+else
+    sudo chmod 660 $txtfile
+    sudo chown $userid:$group $txtfile
+fi
+
+echo "$userid.txt 파일이 생성되었습니다."
