@@ -1,9 +1,13 @@
-Preset:
+how to start:
 
-Make shared folder:
-sudo mkdir -p /home/shared
-sudo chmod 777 /home/shared
+sudo ./ucheck.sh
 
-Make project folder:
-mkdir -p ~/ucheck
-cd ~/ucheck
+
+dir
+/home/username/username.txt
+
+dir
+/home/shared/group/username.txt
+
+dir
+/home/Ucheck/
