@@ -119,9 +119,6 @@ student_attendance() {
         # 학생의 출석 정보만 변경 (홈 디렉토리의 파일)
         sed -i "s/ClassA:Absent/ClassA:Present/" "$USER_FILE"
         echo "A수업 출석 확인 되었습니다!"
-        
-        # 출석 변경 알림을 교수에게 보냄 (shared 폴더에 알림 추가)
-        echo "$username님이 A수업 출석을 변경 요청했습니다." >> "/home/shared/group1/notifications.txt"
     else
         echo "출석 정보가 변경되지 않았습니다."
     fi
@@ -177,32 +174,51 @@ professor_attendance() {
             echo "잘못된 번호입니다."
         fi
     elif [ "$choice" == "2" ]; then
-        # 새로운 알림 확인
-        if [ -s "$NOTIFICATION_FILE" ]; then
-            echo "새로운 알림이 있습니다."
-            while IFS= read -r notification; do
-                echo "$notification"
-                read -p "출석을 인정하시겠습니까? (Y/N): " confirm
-                if [[ "$confirm" == "Y" || "$confirm" == "y" ]]; then
-                    student_name=$(echo "$notification" | cut -d' ' -f1)
-                    sed -i "s/ClassA:Absent/ClassA:Present/" "/home/shared/group2/$student_name/$student_name.txt"
-                    sed -i "s/ClassA:Absent/ClassA:Present/" "/home/$student_name/$student_name.txt"
-                    echo "$student_name 의 A수업 출석 확인 되었습니다!"
-                elif [[ "$confirm" == "N" || "$confirm" == "n" ]]; then
-                    student_name=$(echo "$notification" | cut -d' ' -f1)
-                    sed -i "s/ClassA:Present/ClassA:Absent/" "/home/shared/group2/$student_name/$student_name.txt"
-                    sed -i "s/ClassA:Present/ClassA:Absent/" "/home/$student_name/$student_name.txt"
-                    echo "$student_name 의 A수업 결석 확인 되었습니다!"
-                fi
-            done < "$NOTIFICATION_FILE"
-            > "$NOTIFICATION_FILE"  # 알림 처리 후 파일 비우기
+    # 새로운 알림 확인
+    if [ -s "$NOTIFICATION_FILE" ]; then
+        echo "새로운 알림이 있습니다."
+        count=1
+        # 알림 번호 매기기
+        while IFS= read -r notification; do
+            echo "$count. $notification"
+            count=$((count + 1))
+        done < "$NOTIFICATION_FILE"
+
+        # 사용자에게 선택을 받기
+        read -p "출석을 변경할 알림 번호를 선택하세요: " selected_notification
+        selected_notification=$((selected_notification - 1))  # 번호는 1부터 시작하므로, 인덱스는 0부터 시작해야 함
+
+        # 해당 알림 번호에 대한 출석 처리
+        if [ "$selected_notification" -ge 0 ]; then
+            # 알림을 읽어서 학생 이름 추출
+            notification=$(sed -n "$((selected_notification + 1))p" "$NOTIFICATION_FILE")
+            student_name=$(echo "$notification" | cut -d' ' -f1)
+
+            # 출석 인정 여부 확인
+            read -p "$student_name 의 출석을 인정하시겠습니까? (Y/N): " confirm
+            if [[ "$confirm" == "Y" || "$confirm" == "y" ]]; then
+                # 출석 인정
+                sed -i "s/ClassA:Absent/ClassA:Present/" "/home/shared/group2/$student_name/$student_name.txt"
+                sed -i "s/ClassA:Absent/ClassA:Present/" "/home/$student_name/$student_name.txt"
+                echo "$student_name 의 A수업 출석 확인 되었습니다!"
+            elif [[ "$confirm" == "N" || "$confirm" == "n" ]]; then
+                # 출석 거절 (결석 처리)
+                sed -i "s/ClassA:Present/ClassA:Absent/" "/home/shared/group2/$student_name/$student_name.txt"
+                sed -i "s/ClassA:Present/ClassA:Absent/" "/home/$student_name/$student_name.txt"
+                echo "$student_name 의 A수업 결석 확인 되었습니다!"
+            else
+                echo "잘못된 입력입니다."
+            fi
         else
-            echo "새로운 알림이 없습니다."
+            echo "잘못된 번호입니다."
         fi
+
+        # 알림 처리 후 파일 비우기
+        > "$NOTIFICATION_FILE"
     else
-        echo "잘못된 입력입니다."
+        echo "새로운 알림이 없습니다."
     fi
-}
+
 
 
 
