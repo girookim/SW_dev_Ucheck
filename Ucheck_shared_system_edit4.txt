@@ -119,9 +119,10 @@ student_attendance() {
         # 학생의 출석 정보만 변경 (홈 디렉토리의 파일)
         sed -i "s/ClassA:Absent/ClassA:Present/" "$USER_FILE"
         echo "A수업 출석 확인 되었습니다!"
-       
+    fi
 }
 
+# 교수 출석 수정 함수
 professor_attendance() {
     STUDENT_PARENT_DIR="/home/shared/group2/"
     NOTIFICATION_FILE="/home/shared/group1/notifications.txt"
@@ -171,9 +172,6 @@ professor_attendance() {
         fi
     fi
 }
-
-
-
 
 # 메인 스크립트 실행
 echo "1. 회원가입"
