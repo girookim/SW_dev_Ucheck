@@ -139,7 +139,7 @@ professor_attendance() {
         student_names=()  # 학생 이름 저장 배열
         for student_dir in "$STUDENT_PARENT_DIR"*/; do
             if [ -d "$student_dir" ]; then
-                username=$(basename "$student_dir"))
+                username=$(basename "$student_dir")
                 student_file="$student_dir/$username.txt"
                 if [ -f "$student_file" ]; then
                     role=$(grep "^$username:" "$student_file" | cut -d':' -f3)
