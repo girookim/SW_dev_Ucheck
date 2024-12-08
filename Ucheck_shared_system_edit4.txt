@@ -119,12 +119,7 @@ student_attendance() {
         # 학생의 출석 정보만 변경 (홈 디렉토리의 파일)
         sed -i "s/ClassA:Absent/ClassA:Present/" "$USER_FILE"
         echo "A수업 출석 확인 되었습니다!"
-        
-        # 출석 변경 알림을 교수에게 보냄 (shared 폴더에 알림 추가)
-        echo "$username님이 A수업 출석을 변경 요청했습니다." >> "/home/shared/group1/notifications.txt"
-    else
-        echo "출석 정보가 변경되지 않았습니다."
-    fi
+       
 }
 
 professor_attendance() {
