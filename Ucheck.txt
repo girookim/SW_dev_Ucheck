@@ -1,0 +1,194 @@
+#!/bin/bash
+
+#스크립트의 이름은 totla.sh로 
+
+chmod +x total.sh
+
+# 회원가입 함수
+signup() {
+    read -p "이름을 입력하세요: " username
+    read -p "비밀번호를 입력하세요: " password
+    read -p "역할을 입력하세요 (professor/student): " role
+
+    if [[ "$role" == "professor" ]]; then
+        group="group1"
+    elif [[ "$role" == "student" ]]; then
+        group="group2"
+    else
+        echo "잘못된 역할 입력."
+        exit 1
+    fi
+
+    # 그룹 생성
+    if ! getent group "$group" > /dev/null; then
+        groupadd "$group"
+        if [ $? -ne 0 ]; then
+            echo "그룹 생성 실패: $group"
+            exit 1
+        fi
+    fi
+
+    # 사용자 추가
+    if id "$username" &>/dev/null; then
+        echo "이미 존재하는 이름입니다. 다른 이름을 사용해주세요."
+        exit 1
+    else
+        useradd -m -G "$group" -s /bin/bash "$username"
+        if [ $? -ne 0 ]; then
+            echo "사용자 생성 실패: $username"
+            exit 1
+        fi
+
+        echo "$username:$password" | chpasswd
+        if [ $? -ne 0 ]; then
+            echo "비밀번호 설정 실패."
+            exit 1
+        fi
+    fi
+
+    # 홈 디렉토리 및 정보 파일 생성
+    home_dir="/home/$username"
+    info_file="$home_dir/${username}.txt"
+
+    # 홈 디렉토리 확인 및 생성
+    if [ ! -d "$home_dir" ]; then
+        sudo mkdir -p "$home_dir"
+        if [ $? -ne 0 ]; then
+            echo "홈 디렉토리 생성 실패: $home_dir"
+            exit 1
+        fi
+    fi
+
+    # 정보 파일 생성
+    echo -e "$username:$password:$role:ClassA:Absent" > "$info_file"
+    if [ $? -ne 0 ]; then
+        echo "정보 파일 생성 실패: $info_file"
+        exit 1
+    fi
+
+    # 파일 권한 설정
+    sudo chown "$username:$group" "$info_file"
+    sudo chmod 600 "$info_file"
+
+    if [[ "$role" == "professor" ]]; then
+        sudo chmod 640 "$info_file"
+        sudo chgrp group1 "$info_file"
+    else
+        sudo chmod 600 "$info_file"
+        sudo gpasswd -d "$username" sudo &>/dev/null
+    fi
+
+    echo "사용자 추가 완료."
+#    echo "홈 디렉토리: $home_dir"
+#    echo "정보 파일: $info_file"
+}
+
+# 로그인 함수
+login() {
+    echo "로그인 아이디를 입력해주세요:"
+    read -p ">>> " username
+    echo "로그인 비밀번호를 입력해주세요:"
+    read -p ">>> " password
+    echo
+
+    USER_FILE="/home/$username/${username}.txt"
+    if [ ! -f "$USER_FILE" ]; then
+        echo "로그인 정보가 올바르지 않습니다."
+        return 1
+    fi
+
+    user_line=$(grep "^$username:$password:" "$USER_FILE")
+    if [ -n "$user_line" ]; then
+        role=$(echo "$user_line" | cut -d':' -f3)
+        return 0
+    else
+        echo "로그인 정보가 올바르지 않습니다."
+        return 1
+    fi
+}
+
+# 학생 출석 수정 함수
+student_attendance() {
+    echo "A수업을 출석하시겠습니까? (Y/N)"
+    read -p ">>> " confirm
+    if [[ "$confirm" == "Y" || "$confirm" == "y" ]]; then
+        sed -i "s/ClassA:Absent/ClassA:Present/" "$USER_FILE"
+        echo "A수업 출석 확인 되었습니다!"
+    else
+        echo "출석 정보가 변경되지 않았습니다."
+    fi
+}
+
+# 교수 출석 수정 함수
+professor_attendance() {
+    STUDENT_PARENT_DIR="/home/"
+
+    echo "조회할 수 있는 학생 목록:"
+    count=1
+    for user_dir in "$STUDENT_PARENT_DIR"*/; do
+        if [ -d "$user_dir" ]; then
+            username=$(basename "$user_dir")
+            student_file="$user_dir/$username.txt"
+            if [ -f "$student_file" ]; then
+                role=$(grep "^$username:" "$student_file" | cut -d':' -f3)
+                if [ "$role" == "student" ]; then
+                    echo "$count. $username"
+                    count=$((count + 1))
+                fi
+            fi
+        fi
+    done
+
+    echo "출석 정보를 조회할 학생의 아이디를 입력해주세요:"
+    read -p ">>> " student_name
+
+    STUDENT_FILE="$STUDENT_PARENT_DIR/$student_name/$student_name.txt"
+    if [ ! -f "$STUDENT_FILE" ]; then
+        echo "잘못된 학생 ID입니다."
+        return
+    fi
+
+    attendance_status=$(grep "^$student_name:" "$STUDENT_FILE" | grep -o "ClassA:[^:]*" | cut -d':' -f2)
+    if [ "$attendance_status" == "Absent" ]; then
+        echo "'$student_name' 의 A수업 출석정보는 결석입니다."
+        read -p "'$student_name' 의 A수업을 출석 처리 하시겠습니까? (Y/N): " confirm
+        if [[ "$confirm" == "Y" || "$confirm" == "y" ]]; then
+            sed -i "s/ClassA:Absent/ClassA:Present/" "$STUDENT_FILE"
+            echo "'$student_name' 의 A수업 출석 확인 되었습니다!"
+        fi
+    elif [ "$attendance_status" == "Present" ]; then
+        echo "'$student_name' 의 A수업 출석정보는 출석입니다."
+        read -p "'$student_name' 의 A수업을 결석 처리 하시겠습니까? (Y/N): " confirm
+        if [[ "$confirm" == "Y" || "$confirm" == "y" ]]; then
+            sed -i "s/ClassA:Present/ClassA:Absent/" "$STUDENT_FILE"
+            echo "'$student_name' 의 A수업 결석 확인 되었습니다!"
+        fi
+    else
+        echo "출석 상태가 올바르지 않습니다."
+    fi
+}
+
+# 메인 스크립트 실행
+echo "1. 회원가입"
+echo "2. 로그인"
+read -p "선택하세요 (1/2): " choice
+
+if [ "$choice" == "1" ]; then
+    signup
+elif [ "$choice" == "2" ]; then
+    if login; then
+        if [ "$role" == "student" ]; then
+            student_attendance
+        elif [ "$role" == "professor" ]; then
+            professor_attendance
+        else
+            echo "알 수 없는 역할입니다: $role"
+        fi
+    else
+        echo "프로그램을 종료합니다."
+    fi
+else
+    echo "잘못된 입력입니다. 프로그램을 종료합니다."
+fi
+
+echo "---종료---"
