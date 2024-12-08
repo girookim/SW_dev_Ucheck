@@ -139,7 +139,7 @@ professor_attendance() {
         student_names=()  # 학생 이름 저장 배열
         for student_dir in "$STUDENT_PARENT_DIR"*/; do
             if [ -d "$student_dir" ]; then
-                username=$(basename "$student_dir")
+                username=$(basename "$student_dir"))
                 student_file="$student_dir/$username.txt"
                 if [ -f "$student_file" ]; then
                     role=$(grep "^$username:" "$student_file" | cut -d':' -f3)
@@ -218,8 +218,11 @@ professor_attendance() {
         else
             echo "새로운 알림이 없습니다."
         fi
+    else
+        echo "잘못된 선택입니다."
     fi
-}  # End of professor_attendance function
+}
+
 
 # 메인 스크립트 실행
 echo "1. 회원가입"
