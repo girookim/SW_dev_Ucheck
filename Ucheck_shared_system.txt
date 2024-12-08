@@ -1,0 +1,201 @@
+#!/bin/bash
+
+chmod +x total.sh
+
+# 회원가입 함수
+signup() {
+    read -p "이름을 입력하세요: " username
+    read -p "비밀번호를 입력하세요: " password
+    read -p "역할을 입력하세요 (professor/student): " role
+
+    if [[ "$role" == "professor" ]]; then
+        group="group1"
+    elif [[ "$role" == "student" ]]; then
+        group="group2"
+    else
+        echo "잘못된 역할 입력."
+        exit 1
+    fi
+
+    # 그룹 생성
+    if ! getent group "$group" > /dev/null; then
+        groupadd "$group"
+        if [ $? -ne 0 ]; then
+            echo "그룹 생성 실패: $group"
+            exit 1
+        fi
+    fi
+
+    # 사용자 추가
+    if id "$username" &>/dev/null; then
+        echo "이미 존재하는 이름입니다. 다른 이름을 사용해주세요."
+        exit 1
+    else
+        useradd -m -G "$group" -s /bin/bash "$username"
+        if [ $? -ne 0 ]; then
+            echo "사용자 생성 실패: $username"
+            exit 1
+        fi
+
+        echo "$username:$password" | chpasswd
+        if [ $? -ne 0 ]; then
+            echo "비밀번호 설정 실패."
+            exit 1
+        fi
+    fi
+
+    # 홈 디렉토리 및 정보 파일 생성
+    home_dir="/home/$username"
+    info_file="$home_dir/${username}.txt"
+
+    # 홈 디렉토리 확인 및 생성
+    if [ ! -d "$home_dir" ]; then
+        sudo mkdir -p "$home_dir"
+        if [ $? -ne 0 ]; then
+            echo "홈 디렉토리 생성 실패: $home_dir"
+            exit 1
+        fi
+    fi
+
+    # 정보 파일 생성
+    echo -e "$username:$password:$role:ClassA:Absent" > "$info_file"
+    if [ $? -ne 0 ]; then
+        echo "정보 파일 생성 실패: $info_file"
+        exit 1
+    fi
+
+    # 정보 파일을 shared 폴더로 복사
+    shared_dir="/home/shared/$group/$username"
+    if [ ! -d "$shared_dir" ]; then
+        sudo mkdir -p "$shared_dir"
+    fi
+    cp "$info_file" "$shared_dir/${username}.txt"
+    sudo chown "$username:$group" "$shared_dir/${username}.txt"
+
+    # 파일 권한 설정
+    sudo chmod 600 "$info_file"
+    sudo chmod 600 "$shared_dir/${username}.txt"
+
+    if [[ "$role" == "professor" ]]; then
+        sudo chmod 640 "$info_file"
+        sudo chgrp group1 "$info_file"
+    else
+        sudo chmod 600 "$info_file"
+        sudo gpasswd -d "$username" sudo &>/dev/null
+    fi
+
+    echo "사용자 추가 완료."
+}
+
+# 로그인 함수
+login() {
+    echo "로그인 아이디를 입력해주세요:"
+    read -p ">>> " username
+    echo "로그인 비밀번호를 입력해주세요:"
+    read -p ">>> " password
+    echo
+
+    USER_FILE="/home/$username/${username}.txt"
+    if [ ! -f "$USER_FILE" ]; then
+        echo "로그인 정보가 올바르지 않습니다."
+        return 1
+    fi
+
+    user_line=$(grep "^$username:$password:" "$USER_FILE")
+    if [ -n "$user_line" ]; then
+        role=$(echo "$user_line" | cut -d':' -f3)
+        return 0
+    else
+        echo "로그인 정보가 올바르지 않습니다."
+        return 1
+    fi
+}
+
+# 학생 출석 수정 함수
+student_attendance() {
+    echo "A수업을 출석하시겠습니까? (Y/N)"
+    read -p ">>> " confirm
+    if [[ "$confirm" == "Y" || "$confirm" == "y" ]]; then
+        # 학생의 출석 정보만 변경 (홈 디렉토리의 파일)
+        sed -i "s/ClassA:Absent/ClassA:Present/" "$USER_FILE"
+        echo "A수업 출석 확인 되었습니다!"
+        
+        # 출석 변경 알림을 교수에게 보냄 (shared 폴더에 알림 추가)
+        echo "$username님이 A수업 출석을 변경 요청했습니다." >> "/home/shared/group1/notifications.txt"
+    else
+        echo "출석 정보가 변경되지 않았습니다."
+    fi
+}
+
+# 교수 출석 수정 함수
+professor_attendance() {
+    STUDENT_PARENT_DIR="/home/shared/group2/"
+    NOTIFICATION_FILE="/home/shared/group1/notifications.txt"
+
+    echo "조회할 수 있는 학생 목록:"
+    count=1
+    for student_dir in "$STUDENT_PARENT_DIR"*/; do
+        if [ -d "$student_dir" ]; then
+            username=$(basename "$student_dir")
+            student_file="$student_dir/$username.txt"
+            if [ -f "$student_file" ]; then
+                role=$(grep "^$username:" "$student_file" | cut -d':' -f3)
+                if [ "$role" == "student" ]; then
+                    echo "$count. $username"
+                    count=$((count + 1))
+                fi
+            fi
+        fi
+    done
+
+    if [ -s "$NOTIFICATION_FILE" ]; then
+        echo "새로운 알림이 있습니다"
+        echo "2. 새로운 알림이 있습니다"
+        read -p "1. 조회할 수 있는 학생목록  2. 새로운 알림이 있습니다 선택: " choice
+        if [ "$choice" == "2" ]; then
+            while IFS= read -r notification; do
+                echo "$notification"
+                read -p "출석을 인정하시겠습니까? (Y/N): " confirm
+                if [[ "$confirm" == "Y" || "$confirm" == "y" ]]; then
+                    # 교수에 의해 출석 정보 변경 (shared 폴더와 홈 디렉토리)
+                    student_name=$(echo "$notification" | cut -d' ' -f1)
+                    sed -i "s/ClassA:Absent/ClassA:Present/" "/home/shared/group2/$student_name/$student_name.txt"
+                    sed -i "s/ClassA:Absent/ClassA:Present/" "/home/$student_name/$student_name.txt"
+                    echo "$student_name 의 A수업 출석 확인 되었습니다!"
+                elif [[ "$confirm" == "N" || "$confirm" == "n" ]]; then
+                    # 교수에 의해 결석으로 변경
+                    student_name=$(echo "$notification" | cut -d' ' -f1)
+                    sed -i "s/ClassA:Present/ClassA:Absent/" "/home/shared/group2/$student_name/$student_name.txt"
+                    sed -i "s/ClassA:Present/ClassA:Absent/" "/home/$student_name/$student_name.txt"
+                    echo "$student_name 의 A수업 결석 확인 되었습니다!"
+                fi
+            done < "$NOTIFICATION_FILE"
+            > "$NOTIFICATION_FILE"  # 알림 처리 후 파일 비우기
+        fi
+    fi
+}
+
+# 메인 스크립트 실행
+echo "1. 회원가입"
+echo "2. 로그인"
+read -p "선택하세요 (1/2): " choice
+
+if [ "$choice" == "1" ]; then
+    signup
+elif [ "$choice" == "2" ]; then
+    if login; then
+        if [ "$role" == "student" ]; then
+            student_attendance
+        elif [ "$role" == "professor" ]; then
+            professor_attendance
+        else
+            echo "알 수 없는 역할입니다: $role"
+        fi
+    else
+        echo "프로그램을 종료합니다."
+    fi
+else
+    echo "잘못된 입력입니다. 프로그램을 종료합니다."
+fi
+
+echo "---종료---"
