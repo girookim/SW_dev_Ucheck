@@ -127,7 +127,6 @@ student_attendance() {
     fi
 }
 
-# 교수 출석 수정 함수
 professor_attendance() {
     STUDENT_PARENT_DIR="/home/shared/group2/"
     NOTIFICATION_FILE="/home/shared/group1/notifications.txt"
@@ -153,8 +152,7 @@ professor_attendance() {
         done
     elif [ "$choice" == "2" ]; then
         if [ -s "$NOTIFICATION_FILE" ]; then
-            echo "새로운 알림이 있습니다."
-            # 알림을 모두 읽고 처리
+            echo "새로운 알림이 있습니다"
             while IFS= read -r notification; do
                 echo "$notification"  # 알림 출력
                 read -p "출석을 인정하시겠습니까? (Y/N): " confirm
@@ -178,6 +176,7 @@ professor_attendance() {
         fi
     fi
 }
+
 
 
 
