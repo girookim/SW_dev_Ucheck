@@ -1,9 +1,5 @@
-Preset:
+if you want to delete user
 
-Make shared folder:
-sudo mkdir -p /home/shared
-sudo chmod 777 /home/shared
+sudo ./delete_user.sh
 
-Make project folder:
-mkdir -p ~/ucheck
-cd ~/ucheck
+then, you enter the name of user who you want to delete.(
