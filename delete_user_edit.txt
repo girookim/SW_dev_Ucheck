@@ -1,22 +1,33 @@
 #!/bin/bash
 
-# group1과 group2에 있는 모든 사용자 계정 삭제
-for user in $(getent passwd | grep -E 'group1|group2' | cut -d: -f1); do
-    echo "삭제 중: $user"
-    sudo userdel -r "$user"  # 사용자 계정과 홈 디렉토리 삭제
-    if [ $? -eq 0 ]; then
-        echo "사용자 $user 계정이 삭제되었습니다."
+delete_user_data() {
+    read -p "삭제할 사용자의 이름을 입력하세요: " username
+
+    # 홈 디렉토리 삭제
+    home_dir="/home/$username"
+    if [ -d "$home_dir" ]; then
+        sudo rm -rf "$home_dir"
+        echo "홈 디렉토리 삭제: $home_dir"
     else
-        echo "사용자 $user 삭제 실패."
+        echo "홈 디렉토리가 없습니다: $home_dir"
     fi
-done
 
-# group1과 group2 공유 폴더 내 모든 사용자 파일 삭제
-for user in $(getent passwd | grep -E 'group1|group2' | cut -d: -f1); do
-    echo "삭제 중: /home/shared/group1/$user"
-    sudo rm -rf "/home/shared/group1/$user"  # shared 폴더 내 삭제
-    echo "삭제 중: /home/shared/group2/$user"
-    sudo rm -rf "/home/shared/group2/$user"  # shared 폴더 내 삭제
-done
+    # shared 디렉토리 삭제
+    shared_dir="/home/shared"
+    if [ -d "$shared_dir" ]; then
+        find "$shared_dir" -name "$username" -type d -exec sudo rm -rf {} +
+        echo "Shared 디렉토리에서 $username 데이터 삭제 완료"
+    else
+        echo "Shared 디렉토리가 없습니다: $shared_dir"
+    fi
 
-echo "모든 사용자 계정과 관련된 파일이 삭제되었습니다."
+    # 사용자 삭제
+    if id "$username" &>/dev/null; then
+        sudo userdel -r "$username"
+        echo "사용자 삭제: $username"
+    else
+        echo "사용자가 없습니다: $username"
+    fi
+}
+
+delete_user_data
