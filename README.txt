@@ -1,5 +1,5 @@
-if you want to delete user
+if you want to back up
 
-sudo ./delete_user.sh
+sudo ./back_up_log.sh
 
-then, you enter the name of user who you want to delete.(
+then, information of user data is saved automatically in /home/backup
