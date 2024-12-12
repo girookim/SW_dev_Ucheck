@@ -1,4 +1,5 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 about each files
 1. ucheck.sh
 	the file 'ucheck.sh' is main code for ucheck system. you can sign up/login then you can modify the information of attendance.
@@ -40,10 +41,3 @@ code_dir
 
 back up file dir
 /home/Backup/
-=======
-if you want to delete user
-
-sudo ./delete_user.sh
-
-then, you enter the name of user who you want to delete.(
->>>>>>> complete_version
