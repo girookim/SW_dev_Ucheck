@@ -21,7 +21,8 @@ How to use?
 
 
 3. back_up_log.sh
-	this code is exsisted for back up information of users. If you activate this code the folder 'back_up" is made automatically at \home\ 	directory. in the folder, there are the information of users at the time you actiavate back_up_log code with time stamp.
+	this code is exsisted for back up information of users. 
+	If you activate this code the folder 'back_up" is made automatically at home directory. in the folder, there are the information of 	users at 	the time you actiavate back_up_log code with time stamp.
 
 How to use?
 	sudo ./back_up_log.sh
