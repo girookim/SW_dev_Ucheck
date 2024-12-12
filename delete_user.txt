@@ -1,0 +1,33 @@
+#!/bin/bash
+
+delete_user_data() {
+    read -p "삭제할 사용자의 이름을 입력하세요: " username
+
+    # 홈 디렉토리 삭제
+    home_dir="/home/$username"
+    if [ -d "$home_dir" ]; then
+        sudo rm -rf "$home_dir"
+        echo "홈 디렉토리 삭제: $home_dir"
+    else
+        echo "홈 디렉토리가 없습니다: $home_dir"
+    fi
+
+    # shared 디렉토리 삭제
+    shared_dir="/home/shared"
+    if [ -d "$shared_dir" ]; then
+        find "$shared_dir" -name "$username" -type d -exec sudo rm -rf {} +
+        echo "Shared 디렉토리에서 $username 데이터 삭제 완료"
+    else
+        echo "Shared 디렉토리가 없습니다: $shared_dir"
+    fi
+
+    # 사용자 삭제
+    if id "$username" &>/dev/null; then
+        sudo userdel -r "$username"
+        echo "사용자 삭제: $username"
+    else
+        echo "사용자가 없습니다: $username"
+    fi
+}
+
+delete_user_data
