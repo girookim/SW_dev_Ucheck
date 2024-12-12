@@ -1,0 +1,22 @@
+#!/bin/bash
+
+# group1과 group2에 있는 모든 사용자 계정 삭제
+for user in $(getent passwd | grep -E 'group1|group2' | cut -d: -f1); do
+    echo "삭제 중: $user"
+    sudo userdel -r "$user"
+    if [ $? -eq 0 ]; then
+        echo "사용자 $user 계정이 삭제되었습니다."
+    else
+        echo "사용자 $user 삭제 실패."
+    fi
+done
+
+# group1과 group2 공유 폴더 내 모든 사용자 파일 삭제
+for user in $(getent passwd | grep -E 'group1|group2' | cut -d: -f1); do
+    echo "삭제 중: /home/shared/group1/$user"
+    sudo rm -rf "/home/shared/group1/$user"
+    echo "삭제 중: /home/shared/group2/$user"
+    sudo rm -rf "/home/shared/group2/$user"
+done
+
+echo "모든 사용자 계정과 관련된 파일이 삭제되었습니다."

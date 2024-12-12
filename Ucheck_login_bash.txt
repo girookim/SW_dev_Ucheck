@@ -1,0 +1,43 @@
+#!/bin/bash
+
+echo "로그인 아이디를 입력해주세요:"
+read login_id
+
+echo "로그인 비밀번호를 입력해주세요:"
+read -s login_pw
+
+txtfile="/home/shared/$login_id.txt"
+
+# 사용자 인증
+if ! grep -q "비밀번호: $login_pw" "$txtfile"; then
+    echo "로그인 실패. 아이디 또는 비밀번호를 확인하세요."
+    exit 1
+fi
+
+# 사용자 역할 확인
+role=$(groups $login_id | grep -o "group[12]")
+if [[ $role == "group2" ]]; then
+    echo "본인 정보를 수정합니다."
+    sed -i "s/출석정보:.*/출석정보: 출석/" $txtfile
+    echo "출석 확인되었습니다."
+
+elif [[ $role == "group1" ]]; then
+    echo "수정할 학생 ID를 입력하세요:"
+    read student_id
+    student_file="/home/shared/$student_id.txt"
+    if [[ -f $student_file ]]; then
+        echo "학생 $student_id의 출석정보를 확인합니다."
+        cat $student_file
+        echo "수정하시겠습니까? (Y/N)"
+        read confirm
+        if [[ $confirm == "Y" ]]; then
+            sed -i "s/출석정보:.*/출석정보: 출석/" $student_file
+            echo "출석정보가 수정되었습니다."
+        fi
+    else
+        echo "학생 파일이 존재하지 않습니다."
+    fi
+else
+    echo "권한이 없습니다."
+    exit 1
+fi
