@@ -1,0 +1,23 @@
+#!/bin/bash
+
+SHARED_DIR="/home/shared"
+BACKUP_DIR="/home/backup"
+LOG_FILE="$BACKUP_DIR/backup_log.txt"
+
+# 백업 디렉토리 생성
+mkdir -p "$BACKUP_DIR"
+
+# 타임스탬프 생성
+TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
+
+# 백업 파일 이름
+BACKUP_FILE="$BACKUP_DIR/shared_backup_$TIMESTAMP.tar.gz"
+
+# 공유 폴더 압축 백업
+tar -czf "$BACKUP_FILE" "$SHARED_DIR" 2>> "$LOG_FILE"
+
+if [ $? -eq 0 ]; then
+    echo "$(date): Backup successful. Saved to $BACKUP_FILE" >> "$LOG_FILE"
+else
+    echo "$(date): Backup failed." >> "$LOG_FILE"
+fi
